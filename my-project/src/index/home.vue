@@ -253,6 +253,34 @@
     width: 100%;
     height: 60px;
 }
+#loader {
+    -webkit-animation: spin 2s linear infinite;
+    animation: spin 2s linear infinite;
+}
+@-webkit-keyframes spin {
+        0%   {
+            -webkit-transform: rotate(0deg);
+            -ms-transform: rotate(0deg);
+            transform: rotate(0deg);
+        }
+        100% {
+            -webkit-transform: rotate(360deg);
+            -ms-transform: rotate(360deg);
+            transform: rotate(360deg);
+        }
+    }
+    @keyframes spin {
+        0%   {
+            -webkit-transform: rotate(0deg);
+            -ms-transform: rotate(0deg);
+            transform: rotate(0deg);
+        }
+        100% {
+            -webkit-transform: rotate(360deg);
+            -ms-transform: rotate(360deg);
+            transform: rotate(360deg);
+        }
+    }
 </style>
 
 <template>
@@ -275,27 +303,15 @@
                     <span>阅读{{items.read_quantity}}</span>
                 </div>
             </div>
-            <div class="indexitem_audio" @click="audioshowhide(items.bgmusic)">
+            <div v-if="soundmark" class="indexitem_audio" :id="mi ? 'loader' : ''" @click="audioshowhide(items.bgmusic)">
                 <img class="images" src="http://www.wenzhang.xiaoniren.cn/word-info/static/img/3.png" alt="">
             </div>
             <div class="zhanweifu_min"></div>
-            <audio class="audieo" ref='audio' src="http://zhangmenshiting.qianqian.com/data2/music/6b1355835e52ee9dd4ac3e23158c4697/596654708/596654708.mp3?xcode=7935fd99979b9737afe7b73b41f866fe" controls></audio>
-            <!-- <a-player :music="musicarr" autoplay></a-player> -->
+            <audio class="audieo" id="audio" :src="items.bgmusic" controlsList="nodownload" controls></audio>
             <div class="indexitem_container">
                 <div class="indexitem_container_item" v-for="(item,key) in items.details" :key="key">
                     <div class="indexitem_container_name">{{item.content}}</div>
                     <img v-if="item.type == 1" class="images" :src="http + item.view" mode="widthFix" alt="">
-                    <!-- <video 
-                        class="indexitem_container_video" 
-                        v-if="item.type == 2"
-                        playsinline
-                        webkit-playsinline
-                        x5-video-player-type="h5"
-                        :controls="controls == key"
-                        :src="http + item.view"
-                        v-on:mouseenter="HelpcenterShow(key)"
-                        v-on:mouseleave="HelpcenterHide()">
-                    </video> -->
                     <video-player
                      class="video-player vjs-custom-skin"
                      v-if="item.type == 2"
@@ -311,7 +327,7 @@
             </div>
             <div class="indexitem_hot">
                 <div class="indexitem_hot_guli">如果喜欢的我的作品，请赞赏鼓励哦</div>
-                <div class="indexitem_hot_give" @click="reward">打赏</div>
+                <div class="indexitem_hot_give" @click="reward(items.openid,items.id)">打赏</div>
                 <div class="indexitem_hot_givenum">3人打赏</div>
                 <div class="indexitem_hot_readandpraise">
                     <div class="indexitem_hot_readandpraise_item" @click="dianzan(items.id)">
@@ -330,8 +346,8 @@
                                 <div class="home_item_left_namebottom">每篇摄影师</div>
                             </div>
                         </div>
-                        <div class="home_attention_item_right" @click="dotattention(items.openid)" :style="{backgroundColor:attnf[items.g_type].bgc,color:attnf[items.g_type].color}">
-                            {{attnf[items.g_type].name}}
+                        <div class="home_attention_item_right" @click="dotattention(items.openid)" :style="{backgroundColor:attnf[ items.g_type ? items.g_type : 0].bgc,color:attnf[items.g_type ? items.g_type : 0].color}">
+                            {{attnf[items.g_type ? items.g_type : 0].name}}
                         </div>
                     </div>
                 </div>
@@ -357,10 +373,13 @@ import wx from 'weixin-js-sdk'
 import VueAplayer from 'vue-aplayer'
 // let jssdk = new JSSDK('wxf728037082736173', 'bafaf3b46d1b1a439316ead339be17dd')
 
-
 export default {
     data() {
         return {
+            // 控制图标旋转
+            mi: false,
+            // 音标显示隐藏
+            soundmark: false,
             // 歌曲
             musicarr:{
                 title:'',
@@ -433,9 +452,11 @@ export default {
         'a-player': VueAplayer
     },
     mounted() {     
-        console.log(wx)
+      window.addEventListener('scroll', this.menu)
+
       // 获取URL 地址参数
       var getUrlStr =  function(name) {
+          console.log(window.location)
         　var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)");
         　var r = window.location.search.substr(1).match(reg);
             　if(r != null) return unescape(r[2]);
@@ -443,6 +464,7 @@ export default {
       }
       this.id = getUrlStr ("id")
       this.openid = getUrlStr ("openid")
+      console.log(this.openid)
       this.articledetails()
     },
     computed: {
@@ -451,6 +473,14 @@ export default {
         }
     },
     methods:{
+        menu() {
+            this.scroll = document.documentElement.scrollTop || document.body.scrollTop
+            if (this.scroll > 150) {
+                this.soundmark = true
+            }else {
+                this.soundmark = false
+            }
+        },
         // 分享
         shareApp(){        
             wx.miniProgram.navigateTo({url:'../../pages/share/main?id='+ this.id + '&name=' + this.items.title })
@@ -471,11 +501,14 @@ export default {
         },
         // 音乐播放
         audioshowhide(src) {
-            console.log(this.$refs.audio)
-            console.log(this.items.bgmusic)
-            // wx.translateVoice(src)
-            wx.playVoice(src)
-            // this.$refs.audio.src = this.items.bgmusic
+            var audio = document.getElementById('audio')
+            if (audio.paused) {
+                audio.play()
+                this.mi = true
+            }else {
+                audio.pause()
+                this.mi = false
+            }
         },
         // 关注接口
         dotattention (id) {
@@ -538,8 +571,8 @@ export default {
             wx.miniProgram.switchTab({url:'../../pages/publish/main'})
         },
         // 打赏
-        reward () {
-            wx.miniProgram.navigateTo({url:'../../pages/reward/main'})
+        reward (opid,id) {
+            wx.miniProgram.navigateTo({url:'../../pages/reward/main?oppid=' + opid +'&id=' + id})
         },
         // 文章详情
         articledetails () {
@@ -547,7 +580,7 @@ export default {
             this.$ajax.get('http://www.wenzhang.xiaoniren.cn/restapi/article/view', {
                 params: {
                     openid: this.openid  || '121212',
-                    id: this.id  || '19'
+                    id: this.id  || '39'
                 }
             })
             .then(function (res) {
